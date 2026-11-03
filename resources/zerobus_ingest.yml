@@ -1,0 +1,15 @@
+# Lakeflow Connect ingest (Zerobus OTLP gRPC)
+#
+# Zerobus is a write API, not a DAB catalog connector. This file is comments only
+# so `include: resources/*.yml` still validates. The ingest construct is:
+#
+#   Writer:       fluent-bit.yaml  (output.opentelemetry, grpc: on, host *.zerobus.*)
+#   Bronze table: sql/create_bronze.sql  → ${var.bronze_table}
+#   Transform:    resources/fluentbit_otel_etl.pipeline.yml
+#                 src/fluentbit_otel_etl/transformations/silver_otel_logs.py
+#                 src/fluentbit_otel_etl/transformations/gold_*.sql
+#   Serving:      src/lakebase/sync.py  (Lakebase SNAPSHOT synced tables)
+#   Evidence:     evidence/01_ingest_load_test.log
+#
+# See docs/lakeflow-ingest.md.
+{}

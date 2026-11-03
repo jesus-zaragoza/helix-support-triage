@@ -1,5 +1,14 @@
 # Helix Support Console: life-sciences client log triage on Databricks
 
+**Open these first (all text — no notebooks required):** [`SOURCE_MAP.md`](SOURCE_MAP.md)
+
+| Layer | Code | Run log |
+|---|---|---|
+| Lakeflow ingest (Zerobus OTLP gRPC) | `fluent-bit.yaml`, `sql/create_bronze.sql` | [`evidence/01_ingest_load_test.log`](evidence/01_ingest_load_test.log) |
+| Lakeflow SDP (silver + gold) | `src/fluentbit_otel_etl/transformations/`, `resources/fluentbit_otel_etl.pipeline.yml` | [`evidence/02_pipeline_and_tables.md`](evidence/02_pipeline_and_tables.md) |
+| Lakebase (sync + triage notes) | `src/lakebase/sync.py`, `sql/triage_notes.sql`, `src/app/app.py` | [`evidence/04_lakebase_serving.md`](evidence/04_lakebase_serving.md), [`evidence/notebooks/04_lakebase_sync.md`](evidence/notebooks/04_lakebase_sync.md) |
+| ML → GenAI | `src/notebooks/02_train_anomaly_model.py` → `src/notebooks/03_incident_briefs.py` | [`evidence/notebooks/02_train_anomaly_model.md`](evidence/notebooks/02_train_anomaly_model.md), [`evidence/notebooks/03_incident_briefs.md`](evidence/notebooks/03_incident_briefs.md) |
+
 An end-to-end prototype for a life-sciences SaaS vendor. **Helix Clinical Cloud** (fictional) runs imaging-archive, DICOM routing, trial-data upload and eConsent apps on Kubernetes for pharma and CRO clients. Its Support team could not see application logs, so every "site X's upload failed" ticket escalated to engineering.
 
 **Outcome:** Support answers client tickets from one app in minutes. The app shows client health, ML-flagged anomalies, an AI-written incident brief with a client reply, a Genie box for follow-up questions, and triage notes saved to Lakebase.
@@ -8,6 +17,7 @@ An end-to-end prototype for a life-sciences SaaS vendor. **Helix Clinical Cloud*
 
 - Business deck: [`deck/helix-support-triage.md`](deck/helix-support-triage.md) ([PDF](deck/helix-support-triage.pdf))
 - Execution evidence: [`evidence/README.md`](evidence/README.md)
+- Certification form: select the **`submission/`** folder (text-only pack), not this workspace root.
 - Architecture deep-dive (Fluent Bit at scale, token broker, OTLP gRPC vs HTTP): [`docs/architecture.md`](docs/architecture.md)
 
 Workspace used: `fevm-ai` (AWS us-east-1, serverless), catalog `accessdemo`, dev schema `dev_jesus_zaragoza_helix_support`.
@@ -23,8 +33,9 @@ Workspace used: `fevm-ai` (AWS us-east-1, serverless), catalog `accessdemo`, dev
                                                                                           ▼
                  gold_client_health · gold_incident_summary · gold_error_signatures · gold_service_volume
                        │                               │                                   │
-            MLflow IsolationForest            ai_query (Claude Sonnet 4.6)           Genie Agent
-            → gold_client_anomalies           → gold_incident_briefs          (instructions, trusted SQL)
+            MLflow IsolationForest → gold_client_anomalies → ai_query → gold_incident_briefs
+                                                                   └── gold_brief_inference (prompt/response log)
+                                                                                         Genie Agent
                        │                               │                                   │
                        └──────── Lakebase synced tables (Postgres) ─────────┐              │
                                                                             ▼              ▼
@@ -40,10 +51,10 @@ The Lakeflow Job `helix_support_triage` runs these steps in order: pipeline refr
 |---|---|---|---|
 | Ingest | Lakeflow Connect: **Zerobus** OTLP gRPC from Fluent Bit | `fluent-bit.yaml`, `scripts/run_load_test.sh`, `scripts/generate_otel_logs.py`, `scripts/mint_zerobus_token.py`, `sql/create_bronze.sql` | [`01_ingest_load_test.log`](evidence/01_ingest_load_test.log) |
 | Transform | **Lakeflow Spark Declarative Pipelines** (silver + 4 gold) | `src/fluentbit_otel_etl/transformations/`, `resources/fluentbit_otel_etl.pipeline.yml` | [`02_pipeline_and_tables.md`](evidence/02_pipeline_and_tables.md) |
-| Govern | **Unity Catalog**: masks, row filter, tags, comments, grants, lineage | `sql/governance_functions.sql`, `sql/governance.sql`, `src/notebooks/01_governance.ipynb` | [`01_governance.ipynb`](src/notebooks/01_governance.ipynb) (outputs) |
-| ML | **MLflow** + UC model registry (IsolationForest, alias `champion`) | `src/notebooks/02_train_anomaly_model.ipynb`, `src/config/incidents.json` | [`02_train_anomaly_model.ipynb`](src/notebooks/02_train_anomaly_model.ipynb), [`03_ml_and_genai.md`](evidence/03_ml_and_genai.md) |
-| Gen AI | **AI Functions** `ai_query` with structured JSON output | `src/notebooks/03_incident_briefs.ipynb` | [`03_incident_briefs.ipynb`](src/notebooks/03_incident_briefs.ipynb), [`03_ml_and_genai.md`](evidence/03_ml_and_genai.md) |
-| Serve | **Lakebase** Autoscaling: 3 synced tables + native `triage_notes` | `src/notebooks/04_lakebase_sync.ipynb`, `scripts/lakebase_grant_and_verify.py` | [`04_lakebase_sync.ipynb`](src/notebooks/04_lakebase_sync.ipynb), [`04_lakebase_serving.md`](evidence/04_lakebase_serving.md) |
+| Govern | **Unity Catalog**: masks, row filter, tags, comments, grants, lineage | `sql/governance_functions.sql`, `sql/governance.sql`, `src/notebooks/01_governance.py` | [`evidence/notebooks/01_governance.md`](evidence/notebooks/01_governance.md) |
+| ML | **MLflow** + UC model registry (IsolationForest, alias `champion`) | `src/notebooks/02_train_anomaly_model.py`, `src/config/incidents.json` | [`evidence/notebooks/02_train_anomaly_model.md`](evidence/notebooks/02_train_anomaly_model.md), [`03_ml_and_genai.md`](evidence/03_ml_and_genai.md) |
+| Gen AI | **AI Functions** `ai_query`; reads `gold_client_anomalies`; logs `gold_brief_inference` | `src/notebooks/03_incident_briefs.py` | [`evidence/notebooks/03_incident_briefs.md`](evidence/notebooks/03_incident_briefs.md), [`03_ml_and_genai.md`](evidence/03_ml_and_genai.md) |
+| Serve | **Lakebase** Autoscaling: 3 synced tables + native `triage_notes` | `src/lakebase/sync.py`, `sql/triage_notes.sql`, `src/app/app.py` | [`evidence/notebooks/04_lakebase_sync.md`](evidence/notebooks/04_lakebase_sync.md), [`04_lakebase_serving.md`](evidence/04_lakebase_serving.md) |
 | Orchestrate | **Lakeflow Jobs** in a bundle | `databricks.yml`, `resources/support_triage.job.yml` | [`05_job_run.md`](evidence/05_job_run.md) |
 | Ask | **Genie Agent** (instructions, sample questions, trusted SQL, benchmarks) | `src/genie/space.json`, `scripts/create_genie_space.py` | [`06_genie_conversation.md`](evidence/06_genie_conversation.md) |
 | Act | **Databricks Apps** (FastAPI; Lakebase, SQL warehouse and Genie resources) | `src/app/`, `resources/support_console.app.yml` | [`07_app_api.md`](evidence/07_app_api.md) |

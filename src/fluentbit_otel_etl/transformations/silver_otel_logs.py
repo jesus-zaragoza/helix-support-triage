@@ -1,7 +1,8 @@
-"""Silver — flatten Zerobus OTEL logs into typed, client-aware support events.
+"""Lakeflow Spark Declarative Pipeline — silver streaming table.
 
-Bronze is the standalone managed table populated by Fluent Bit → Zerobus OTLP gRPC
-(accessdemo.fluentbit.helix_otel_logs). This pipeline does not own bronze.
+Flattens bronze OTEL logs (Fluent Bit → Zerobus / Lakeflow Connect OTLP gRPC) into
+typed, client-aware support events. Bronze is accessdemo.fluentbit.helix_otel_logs
+and is not owned by this pipeline.
 """
 from pyspark import pipelines as dp
 from pyspark.sql import functions as F

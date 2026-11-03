@@ -1,3 +1,7 @@
+# Lakeflow Spark Declarative Pipeline (serverless, triggered).
+# Reads bronze written by Fluent Bit → Zerobus (Lakeflow Connect OTLP gRPC),
+# publishes silver_otel_logs + gold materialized views. Lakebase sync is a later
+# job task (src/lakebase/sync.py), not this pipeline.
 resources:
   pipelines:
     fluentbit_otel_etl:

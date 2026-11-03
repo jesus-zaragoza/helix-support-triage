@@ -1,0 +1,21 @@
+Run URL: https://fevm-serverless-stable-2xts9s.cloud.databricks.com/jobs/1031613634051044/runs/195381314710847?o=7474654402210824
+
+2026-11-02 16:55:13 "[dev jesus_zaragoza] helix_support_triage" RUNNING
+2026-11-02 17:05:33 "[dev jesus_zaragoza] helix_support_triage" TERMINATED SUCCESS
+Output:
+=======
+Task governance_functions:
+
+=======
+Task governance_post:
+
+=======
+Task train_score_anomalies:
+{"run_id": "7d730d65bafe45ec9320ef0c8610056b", "model": "accessdemo.dev_jesus_zaragoza_helix_support.client_anomaly_model", "version": 2, "anomalies": 130, "precision": 0.5308, "recall": 1.0, "roc_auc": 0.9999, "average_precision": 0.95, "flagged_windows": 130.0, "training_windows": 26000.0}
+=======
+Task incident_briefs:
+
+=======
+Task lakebase_sync:
+
+exit=0

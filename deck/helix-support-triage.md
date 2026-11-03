@@ -86,20 +86,20 @@ UC bronze: OTEL v2 Delta table
    ▼  Lakeflow Spark Declarative Pipeline (serverless)
 silver_otel_logs   typed, deduped, column masks, row filter
    ▼
-gold_client_health · incident_summary · error_signatures
-   │                     │                      │
-   ▼                     ▼                      ▼
-MLflow IsolationForest  ai_query (Claude)    Genie Agent
-gold_client_anomalies   gold_incident_briefs (trusted SQL)
-   │                     │                      │
-   └──▶ Lakebase synced tables (Postgres) ◀──┘  │
-                 │                              │
-                 ▼                              ▼
-       Databricks App "Support Console" (FastAPI)
-                 └── writes triage_notes ─▶ Lakebase
+gold_client_health
+   ▼
+MLflow IsolationForest → gold_client_anomalies
+   ▼
+ai_query briefs → gold_incident_briefs
+               → gold_brief_inference (logged prompt/response)
+   ▼
+Lakebase SNAPSHOT sync (Postgres) + Genie Agent
+   ▼
+Databricks App "Support Console"
+   └── writes triage_notes ─▶ Lakebase
 ```
 
-One Lakeflow Job (in a Declarative Automation Bundle) runs the chain: pipeline refresh → governance → train and score → AI briefs → Lakebase sync.
+One Lakeflow Job runs: pipeline refresh → governance → train and score → AI briefs (from the model's flagged windows) → Lakebase sync.
 
 <div style="page-break-after: always"></div>
 

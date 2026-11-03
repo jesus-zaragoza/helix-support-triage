@@ -1,5 +1,8 @@
 # ML + Gen AI evidence
 
+`gold_incident_briefs` is built from `gold_client_anomalies` (IsolationForest windows grouped into incidents). `gold_brief_inference` logs each `ai_query` prompt and JSON response (10 rows). Notebook stdout: `evidence/notebooks/03_incident_briefs.md`.
+
+
 ### Registered model `accessdemo.dev_jesus_zaragoza_helix_support.client_anomaly_model` @champion = version 4
 
 MLflow run `eead63019777404e803eb480989c5a9d`, status `READY`.
