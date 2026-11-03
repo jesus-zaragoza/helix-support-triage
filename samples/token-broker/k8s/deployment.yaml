@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zerobus-token-broker
+  namespace: logging
+  labels:
+    app.kubernetes.io/name: zerobus-token-broker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: zerobus-token-broker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: zerobus-token-broker
+    spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: zerobus-token-broker
+      containers:
+        - name: broker
+          image: zerobus-token-broker:sample
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: POLICIES_PATH
+              value: /etc/token-broker/policies.json
+            - name: CACHE_SKEW_SECONDS
+              value: "300"
+            - name: LISTEN_PORT
+              value: "8080"
+          envFrom:
+            - secretRef:
+                name: zerobus-token-broker
+          volumeMounts:
+            - name: policies
+              mountPath: /etc/token-broker
+              readOnly: true
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+      volumes:
+        - name: policies
+          configMap:
+            name: zerobus-token-broker-policies

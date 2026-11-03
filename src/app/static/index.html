@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Helix Support Console</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --ink:#1b2430; --muted:#5b6675; --line:#e3e6ea; --accent:#1f6feb;
+          --sev1:#c62828; --sev2:#ef6c00; --sev3:#5b6675; --ok:#2e7d32; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.45 -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--ink); }
+  header { background:#0d2538; color:#fff; padding:14px 24px; display:flex; align-items:baseline; gap:16px; }
+  header h1 { font-size:18px; margin:0; } header span { color:#b8c7d6; font-size:13px; }
+  main { display:grid; grid-template-columns: 360px 1fr; gap:16px; padding:16px 24px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:14px 16px; margin-bottom:16px; }
+  h2 { font-size:15px; margin:0 0 10px; } h3 { font-size:14px; margin:14px 0 6px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { text-align:left; padding:5px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:600; }
+  tr.client { cursor:pointer; } tr.client:hover, tr.client.sel { background:#eef4ff; }
+  .sev { font-weight:700; padding:1px 6px; border-radius:4px; color:#fff; font-size:12px; }
+  .SEV1 { background:var(--sev1); } .SEV2 { background:var(--sev2); } .SEV3 { background:var(--sev3); }
+  .muted { color:var(--muted); } .brief { border-left:4px solid var(--line); padding:6px 10px; margin:8px 0; }
+  .brief.SEV1b { border-color:var(--sev1); } .brief.SEV2b { border-color:var(--sev2); }
+  .reply { background:#f2f7f2; border-radius:6px; padding:8px; margin-top:6px; }
+  input, select, textarea, button { font:inherit; padding:6px 8px; border:1px solid var(--line); border-radius:6px; }
+  textarea { width:100%; } button { background:var(--accent); color:#fff; border:none; cursor:pointer; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px; }
+  .bar { height:8px; background:var(--sev1); border-radius:3px; }
+  pre { background:#f3f4f6; padding:8px; border-radius:6px; overflow:auto; font-size:12px; white-space:pre-wrap; }
+  .spark td { padding:1px 4px; border:none; }
+</style>
+</head>
+<body>
+<header><h1>Helix Support Console</h1><span>Client log triage · Lakebase + Genie · synthetic data</span></header>
+<main>
+  <section>
+    <div class="card">
+      <h2>Clients</h2>
+      <table id="clients"><thead><tr><th>Client</th><th>Error rate</th><th>Incidents</th></tr></thead><tbody></tbody></table>
+    </div>
+    <div class="card">
+      <h2>Ask Genie</h2>
+      <div class="row"><input id="q" style="flex:1" placeholder="Which sites had the most upload errors?"><button onclick="ask()">Ask</button></div>
+      <div id="genie" class="muted">Ask a question about client health, errors or incidents.</div>
+    </div>
+  </section>
+  <section>
+    <div class="card" id="detail"><h2>Select a client</h2><p class="muted">Pick a client to see health, model-flagged anomalies, AI incident briefs and triage notes.</p></div>
+  </section>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const pct = v => v == null ? "–" : (100 * v).toFixed(1) + "%";
+let conversationId = null, current = null;
+
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+async function loadClients() {
+  const rows = await api("/api/clients");
+  $("#clients tbody").innerHTML = rows.map(c => `
+    <tr class="client" data-id="${esc(c.client_id)}" onclick="openClient('${esc(c.client_id)}')">
+      <td><b>${esc(c.client_name)}</b><br><span class="muted">${esc(c.client_id)}</span></td>
+      <td>${pct(c.error_rate)}</td>
+      <td>${c.worst_severity ? `<span class="sev ${c.worst_severity}">${c.worst_severity}</span> ` : ""}${c.incidents}</td>
+    </tr>`).join("");
+}
+
+async function openClient(id) {
+  current = id;
+  document.querySelectorAll("tr.client").forEach(t => t.classList.toggle("sel", t.dataset.id === id));
+  const d = await api(`/api/clients/${encodeURIComponent(id)}`);
+  const maxErr = Math.max(1, ...d.timeline.map(t => t.errors));
+  $("#detail").innerHTML = `
+    <h2>${esc(id)}</h2>
+    <h3>Errors per hour (simulated 24h)</h3>
+    <table class="spark"><tr>${d.timeline.map(t => `<td title="${esc(t.hour)}: ${t.errors} errors / ${t.events} events"
+      style="vertical-align:bottom;height:60px"><div class="bar" style="height:${Math.max(2, 56 * t.errors / maxErr)}px;width:10px"></div></td>`).join("")}</tr></table>
+    <h3>AI incident briefs</h3>
+    ${d.briefs.length ? d.briefs.map(b => `
+      <div class="brief ${b.severity}b">
+        <span class="sev ${b.severity}">${b.severity}</span> <b>${esc(b.incident_id)}</b>
+        <span class="muted">${esc(b.started_at)} → ${esc(b.ended_at)} · sites ${esc(b.sites)} · ${esc(b.services)} · peak error ${pct(b.peak_error_rate)}</span>
+        <p>${esc(b.summary)}</p>
+        <p><b>Likely cause:</b> ${esc(b.likely_cause)}<br><b>Next step:</b> ${esc(b.recommended_next_step)}</p>
+        <div class="reply"><b>Draft client reply:</b> ${esc(b.client_reply)}</div>
+      </div>`).join("") : `<p class="muted">No incidents detected.</p>`}
+    <h3>Model-flagged windows (top ${d.anomalies.length})</h3>
+    <table><tr><th>Window</th><th>Site</th><th>Service</th><th>Error rate</th><th>p95 ms</th><th>Signature</th><th>Score</th></tr>
+    ${d.anomalies.slice(0, 12).map(a => `<tr><td>${esc(a.window_start)}</td><td>${esc(a.site_id)}</td><td>${esc(a.service_name)}</td>
+      <td>${pct(a.error_rate)}</td><td>${a.p95_latency_ms}</td><td>${esc(a.top_error_signature)}</td><td>${a.anomaly_score}</td></tr>`).join("")}</table>
+    <h3>Triage notes</h3>
+    <div class="row">
+      <input id="ticket" placeholder="Ticket id" size="10">
+      <select id="incident"><option value="">(no incident)</option>${d.briefs.map(b => `<option>${esc(b.incident_id)}</option>`).join("")}</select>
+      <select id="status"><option>investigating</option><option>mitigated</option><option>resolved</option><option>escalated</option></select>
+    </div>
+    <textarea id="note" rows="2" placeholder="What did you tell the client / what did you find?"></textarea>
+    <div class="row"><button onclick="saveNote()">Save note to Lakebase</button></div>
+    <table>${d.notes.map(n => `<tr><td>${esc(n.created_at)}</td><td>${esc(n.ticket_id)}</td><td>${esc(n.status)}</td><td>${esc(n.note)}</td></tr>`).join("")}</table>`;
+}
+
+async function saveNote() {
+  await api("/api/notes", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({
+    ticket_id: $("#ticket").value || "T-" + Date.now(), client_id: current, incident_id: $("#incident").value || null,
+    status: $("#status").value, note: $("#note").value || "(empty)", author: "support-console"})});
+  openClient(current);
+}
+
+async function ask() {
+  const q = $("#q").value.trim(); if (!q) return;
+  $("#genie").innerHTML = "Thinking…";
+  try {
+    const r = await api("/api/genie", {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({question: q, conversation_id: conversationId})});
+    conversationId = r.conversation_id;
+    $("#genie").innerHTML = `${r.text ? `<p>${esc(r.text)}</p>` : ""}${r.description ? `<p class="muted">${esc(r.description)}</p>` : ""}
+      ${r.columns.length ? `<table><tr>${r.columns.map(c => `<th>${esc(c)}</th>`).join("")}</tr>${r.rows.slice(0, 15).map(row =>
+        `<tr>${row.map(v => `<td>${esc(v)}</td>`).join("")}</tr>`).join("")}</table>` : ""}
+      ${r.sql ? `<details><summary class="muted">SQL</summary><pre>${esc(r.sql)}</pre></details>` : ""}`;
+  } catch (e) { $("#genie").textContent = "Error: " + e.message; }
+}
+
+loadClients().catch(e => $("#clients tbody").innerHTML = `<tr><td colspan=3>${esc(e.message)}</td></tr>`);
+</script>
+</body>
+</html>

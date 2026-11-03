@@ -1,0 +1,33 @@
+service:
+  flush: 1
+  log_level: info
+
+pipeline:
+  inputs:
+    - name: dummy
+      tag: smoke.logs
+      samples: 1
+      dummy: '{"message":"Zerobus smoke test ${SMOKE_TEST_ID}"}'
+
+  outputs:
+    - name: stdout
+      match: smoke.logs
+
+    - name: opentelemetry
+      match: smoke.logs
+      host: "${WORKSPACE_ID}.zerobus.${REGION}.cloud.databricks.com"
+      port: 443
+
+      grpc: on
+      tls: on
+      tls.verify: on
+      tls.verify_hostname: on
+
+      oauth2.enable: false
+      header:
+        - "authorization Bearer ${DATABRICKS_OTLP_TOKEN}"
+        - "x-databricks-zerobus-table-name ${DATABRICKS_LOGS_TABLE}"
+
+      logs_body_key: $message
+      logs_body_key_attributes: true
+      log_response_payload: true

@@ -1,0 +1,45 @@
+{
+  "simulated_hours": 24,
+  "incidents": [
+    {
+      "incident_key": "INC-UPLOAD-204",
+      "client_id": "fabrikam-cro",
+      "site_ids": ["site-204"],
+      "services": ["trial-upload-api", "dicom-router"],
+      "start_hour": 17.5,
+      "end_hour": 19.0,
+      "error_probability": 0.35,
+      "warn_probability": 0.20,
+      "latency_multiplier": 6.0,
+      "error_messages": ["upload timeout", "DICOM association rejected"],
+      "description": "Site 204 uploads and DICOM transfers time out after a storage gateway change."
+    },
+    {
+      "incident_key": "INC-ESIGN-503",
+      "client_id": "contoso-tx",
+      "site_ids": [],
+      "services": ["econsent-web"],
+      "start_hour": 9.0,
+      "end_hour": 9.75,
+      "error_probability": 0.25,
+      "warn_probability": 0.15,
+      "latency_multiplier": 3.0,
+      "error_messages": ["e-signature provider 503"],
+      "description": "Third-party e-signature provider returns 503 for every Contoso site during the morning consent window."
+    },
+    {
+      "incident_key": "INC-ARCHIVE-SLOW-101",
+      "client_id": "northwind-bio",
+      "site_ids": ["site-101"],
+      "services": ["imaging-archive"],
+      "start_hour": 3.0,
+      "end_hour": 3.5,
+      "error_probability": 0.03,
+      "warn_probability": 0.40,
+      "latency_multiplier": 5.0,
+      "error_messages": ["manifest generation failed"],
+      "warn_messages": ["S3 put slow"],
+      "description": "Imaging archive writes slow down for one Northwind site; mostly warnings and latency, few errors."
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+bundle:
+  name: helix_support_triage
+
+include:
+  - resources/*.yml
+
+variables:
+  catalog:
+    description: Unity Catalog for SDP silver/gold, ML and AI outputs
+    default: accessdemo
+  schema:
+    description: Base schema; development mode publishes to dev_<user>_helix_support
+    default: helix_support
+  bronze_table:
+    description: Zerobus OTEL logs table written by Fluent Bit (not owned by this pipeline)
+    default: accessdemo.fluentbit.helix_otel_logs
+  warehouse_id:
+    description: SQL warehouse for Genie and the app
+    default: 2a82c8f87ef698a1
+  llm_endpoint:
+    description: Foundation Model endpoint used by ai_query incident briefs
+    default: databricks-claude-sonnet-4-6
+  lakebase_project:
+    description: Lakebase Autoscaling project id
+    default: helix-support
+  lakebase_branch:
+    description: Lakebase branch resource name
+    default: projects/helix-support/branches/production
+  lakebase_database:
+    description: Lakebase database resource name
+    default: projects/helix-support/branches/production/databases/databricks-postgres
+  genie_space_id:
+    description: Genie Agent (space) id created by scripts/create_genie_space.py
+    default: 01f1d71fa1d31031988b8348914796c3
+
+targets:
+  dev:
+    default: true
+    mode: development
+    workspace:
+      host: https://fevm-serverless-stable-2xts9s.cloud.databricks.com
+      profile: fevm-ai

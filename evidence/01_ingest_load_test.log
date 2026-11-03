@@ -1,0 +1,54 @@
+# Ingest evidence: Fluent Bit 5.1.3 -> Zerobus OTLP gRPC -> accessdemo.fluentbit.helix_otel_logs
+# Command: DURATION=600 MBPS=3 ./scripts/run_load_test.sh   (full log: 5812 lines; trimmed here)
+
+## First 30 lines
+run started 2026-11-03T00:13:21Z
+Minting Zerobus OTLP token...
+Wrote token to logs/.zerobus_token (expires_in=3600s)
+Starting Fluent Bit (gRPC 7474654402210824.zerobus.us-east-1.cloud.databricks.com:443)...
+Fluent Bit v5.1.3
+* Copyright (C) 2015-2026 The Fluent Bit Authors
+* Fluent Bit is a CNCF graduated project under the Fluent organization
+* https://fluentbit.io
+|  ___| |                | |   | ___ (_) |         |  ___|/  | 
+|  _| | | | | |/ _ \ '_ \| __| | ___ \ | __| \ \ / /   \ \ | | 
+| |   | | |_| |  __/ | | | |_  | |_/ / | |_   \ V //\__/ /_| |_
+\_|   |_|\__,_|\___|_| |_|\__| \____/|_|\__|   \_/ \____(_)___/
+[2026/11/02 16:13:21.706] [ info] [fluent bit] version=5.1.3, commit=, pid=4370
+[2026/11/02 16:13:21.707] [ info] [storage] ver=1.5.4, type=memory, sync=normal, checksum=off, max_chunks_up=128
+[2026/11/02 16:13:21.707] [ info] [simd    ] NEON
+[2026/11/02 16:13:21.707] [ info] [cmetrics] version=2.2.5
+[2026/11/02 16:13:21.707] [ info] [ctraces ] version=0.7.3
+[2026/11/02 16:13:21.707] [ info] [input:tail:tail.0] initializing
+[2026/11/02 16:13:21.707] [ info] [input:tail:tail.0] storage_strategy='memory' (memory only)
+[2026/11/02 16:13:21.709] [ info] [input:tail:tail.0] db: delete unmonitored stale inodes from the database: count=0
+[2026/11/02 16:13:21.768] [ info] [output:opentelemetry:opentelemetry.0] gRPC enabled, HTTP/2 has been auto-enabled
+[2026/11/02 16:13:21.768] [ info] [sp] stream processor started
+[2026/11/02 16:13:21.768] [ info] [engine] Shutdown Grace Period=5, Shutdown Input Grace Period=2
+Generating logs at 3 MB/s for 600s (1.3 TB/day ≈ 15 MB/s)...
+simulating 24h of traffic in 600s at 3 MB/s; 3 injected incidents
+
+## Zerobus responses
+HTTP status=200 responses: 2879
+non-200 responses: 0
+
+## Warnings / errors (deduplicated by message type)
+   4 [error] [output:opentelemetry:opentelemetry.0] error initializing http request
+   4 [ warn] [net] getaddrinfo(host='N.zerobus.us-east-1.cloud.databricks.com', err=12): Timeout while contacting DNS servers
+   4 [ warn] [engine] failed to flush N, N: N, input=tail.0 > output=opentelemetry.0 (out_id=0)
+
+## Sample of successful flushes
+[2026/11/02 16:13:25.111] [ info] [output:opentelemetry:opentelemetry.0] 7474654402210824.zerobus.us-east-1.cloud.databricks.com:443, HTTP status=200
+[2026/11/02 16:16:57.410] [ info] [output:opentelemetry:opentelemetry.0] 7474654402210824.zerobus.us-east-1.cloud.databricks.com:443, HTTP status=200
+[2026/11/02 16:23:30.576] [ info] [output:opentelemetry:opentelemetry.0] 7474654402210824.zerobus.us-east-1.cloud.databricks.com:443, HTTP status=200
+[2026/11/02 16:23:30.772] [ info] [output:opentelemetry:opentelemetry.0] 7474654402210824.zerobus.us-east-1.cloud.databricks.com:443, HTTP status=200
+
+## Generator + drain + shutdown
+run started 2026-11-03T00:13:21Z
+simulating 24h of traffic in 600s at 3 MB/s; 3 injected incidents
+wrote 1635120 rows / 1800.0 MB in 600.0s (3.0 MB/s)
+drain: fluent-bit offset 1796356820 / 1800025694 bytes
+drain: fluent-bit offset 1800025694 / 1800025694 bytes
+Load test finished. Fluent Bit stopping.
+exit=0
+run finished 2026-11-03T00:23:47Z

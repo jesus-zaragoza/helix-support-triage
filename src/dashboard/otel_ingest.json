@@ -1,0 +1,548 @@
+{
+  "datasets": [
+    {
+      "name": "ds_logs",
+      "displayName": "OTEL log events",
+      "catalog": "accessdemo",
+      "schema": "dev_jesus_zaragoza_helix_support",
+      "queryLines": [
+        "SELECT record_id, event_time, event_date,\n",
+        "       COALESCE(NULLIF(service_name, ''), '(unmapped)') AS service_name,\n",
+        "       COALESCE(NULLIF(namespace, ''), '(unmapped)') AS namespace,\n",
+        "       COALESCE(NULLIF(severity_text, ''), '(blank)') AS severity_text,\n",
+        "       COALESCE(NULLIF(error_signature, ''), 'other') AS error_signature,\n",
+        "       is_error, trace_id\n",
+        "FROM silver_otel_logs\n"
+      ],
+      "columns": [
+        {
+          "displayName": "Log rows",
+          "description": "Rows landed from Fluent Bit via Zerobus",
+          "expression": "COUNT(`record_id`)"
+        },
+        {
+          "displayName": "Error rate",
+          "description": "Share of ERROR rows",
+          "expression": "SUM(CASE WHEN `is_error` THEN 1 ELSE 0 END) * 1.0 / COUNT(`record_id`)"
+        },
+        {
+          "displayName": "Debug share",
+          "description": "Share of DEBUG rows — Helix wants this dropped at the Fluent Bit edge",
+          "expression": "SUM(CASE WHEN `severity_text` = 'DEBUG' THEN 1 ELSE 0 END) * 1.0 / COUNT(`record_id`)"
+        },
+        {
+          "displayName": "Rows last 15 min",
+          "description": "Volume inside the 15-minute consumer SLA window",
+          "expression": "SUM(CASE WHEN unix_timestamp(`event_time`) >= unix_timestamp() - 900 THEN 1 ELSE 0 END)"
+        },
+        {
+          "displayName": "Freshness seconds",
+          "description": "Seconds since the newest landed event",
+          "expression": "unix_timestamp() - unix_timestamp(MAX(`event_time`))"
+        }
+      ]
+    },
+    {
+      "name": "ds_errors",
+      "displayName": "ERROR and WARN events",
+      "catalog": "accessdemo",
+      "schema": "dev_jesus_zaragoza_helix_support",
+      "queryLines": [
+        "SELECT record_id, event_time, event_date,\n",
+        "       COALESCE(NULLIF(service_name, ''), '(unmapped)') AS service_name,\n",
+        "       COALESCE(NULLIF(severity_text, ''), '(blank)') AS severity_text,\n",
+        "       COALESCE(NULLIF(error_signature, ''), 'other') AS error_signature\n",
+        "FROM silver_otel_logs\n",
+        "WHERE severity_text IN ('ERROR', 'WARN')\n"
+      ],
+      "columns": [
+        {
+          "displayName": "Error rows",
+          "expression": "COUNT(`record_id`)"
+        }
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "filters",
+      "displayName": "Filters",
+      "pageType": "PAGE_TYPE_GLOBAL_FILTERS",
+      "layoutVersion": "GRID_V1",
+      "layout": [
+        {
+          "widget": {
+            "name": "filter_date",
+            "queries": [
+              {
+                "name": "ds_logs_date",
+                "query": {
+                  "datasetName": "ds_logs",
+                  "fields": [{"name": "event_date", "expression": "`event_date`"}],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "ds_errors_date",
+                "query": {
+                  "datasetName": "ds_errors",
+                  "fields": [{"name": "event_date", "expression": "`event_date`"}],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-date-range-picker",
+              "encodings": {
+                "fields": [
+                  {"fieldName": "event_date", "queryName": "ds_logs_date"},
+                  {"fieldName": "event_date", "queryName": "ds_errors_date"}
+                ]
+              },
+              "frame": {"showTitle": true, "title": "Date"}
+            }
+          },
+          "position": {"x": 0, "y": 0, "width": 4, "height": 2}
+        },
+        {
+          "widget": {
+            "name": "filter_severity",
+            "queries": [
+              {
+                "name": "ds_logs_sev",
+                "query": {
+                  "datasetName": "ds_logs",
+                  "fields": [{"name": "severity_text", "expression": "`severity_text`"}],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "severity_text",
+                    "displayName": "Severity",
+                    "queryName": "ds_logs_sev"
+                  }
+                ]
+              },
+              "frame": {"showTitle": true, "title": "Severity"}
+            }
+          },
+          "position": {"x": 4, "y": 0, "width": 4, "height": 2}
+        },
+        {
+          "widget": {
+            "name": "filter_service",
+            "queries": [
+              {
+                "name": "ds_logs_svc",
+                "query": {
+                  "datasetName": "ds_logs",
+                  "fields": [{"name": "service_name", "expression": "`service_name`"}],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "ds_errors_svc",
+                "query": {
+                  "datasetName": "ds_errors",
+                  "fields": [{"name": "service_name", "expression": "`service_name`"}],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {"fieldName": "service_name", "displayName": "Service", "queryName": "ds_logs_svc"},
+                  {"fieldName": "service_name", "displayName": "Service", "queryName": "ds_errors_svc"}
+                ]
+              },
+              "frame": {"showTitle": true, "title": "Service"}
+            }
+          },
+          "position": {"x": 8, "y": 0, "width": 4, "height": 2}
+        }
+      ]
+    },
+    {
+      "name": "ingest",
+      "displayName": "Ingest operations",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1",
+      "layout": [
+        {
+          "widget": {
+            "name": "title",
+            "multilineTextboxSpec": {
+              "lines": ["# Fluent Bit to Zerobus — imaging-archive ingest operations"]
+            }
+          },
+          "position": {"x": 0, "y": 0, "width": 12, "height": 1}
+        },
+        {
+          "widget": {
+            "name": "subtitle",
+            "multilineTextboxSpec": {
+              "lines": ["Helix production floor is **4.17B rows / 1.3 TB / ~48k lines per second**. Downstream jobs expect logs in Databricks within **15 minutes**. This page is the ingest proof: volume landed, freshness vs that SLA, DEBUG still on the wire, and error signatures for ops triage."]
+            }
+          },
+          "position": {"x": 0, "y": 1, "width": 12, "height": 1}
+        },
+        {
+          "widget": {
+            "name": "kpi-total-rows",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_logs",
+                  "fields": [
+                    {"name": "measure(Log rows)", "expression": "MEASURE(`Log rows`)"}
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(Log rows)",
+                  "displayName": "Rows ingested",
+                  "format": {"type": "number-plain", "abbreviation": "compact", "decimalPlaces": {"type": "max", "places": 1}}
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Rows ingested",
+                "showDescription": true,
+                "description": "All bronze/silver rows landed via Fluent Bit OTLP gRPC (lifetime, not last minute)"
+              }
+            }
+          },
+          "position": {"x": 0, "y": 2, "width": 3, "height": 3}
+        },
+        {
+          "widget": {
+            "name": "kpi-last-15",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_logs",
+                  "fields": [
+                    {"name": "measure(Rows last 15 min)", "expression": "MEASURE(`Rows last 15 min`)"}
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(Rows last 15 min)",
+                  "displayName": "Last 15 min",
+                  "format": {"type": "number-plain", "abbreviation": "compact", "decimalPlaces": {"type": "max", "places": 1}}
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Rows in last 15 min",
+                "showDescription": true,
+                "description": "Matches the 15-minute consumer SLA window"
+              }
+            }
+          },
+          "position": {"x": 3, "y": 2, "width": 3, "height": 3}
+        },
+        {
+          "widget": {
+            "name": "kpi-freshness",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_logs",
+                  "fields": [
+                    {"name": "measure(Freshness seconds)", "expression": "MEASURE(`Freshness seconds`)"}
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(Freshness seconds)",
+                  "displayName": "Lag",
+                  "format": {"type": "number-plain", "decimalPlaces": {"type": "max", "places": 0}, "formatTemplate": "{{ @formatted }} s"}
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Freshness lag",
+                "showDescription": true,
+                "description": "Seconds since newest event. SLA is 15 minutes (900s)."
+              }
+            }
+          },
+          "position": {"x": 6, "y": 2, "width": 3, "height": 3}
+        },
+        {
+          "widget": {
+            "name": "kpi-error-rate",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_logs",
+                  "fields": [
+                    {"name": "measure(Error rate)", "expression": "MEASURE(`Error rate`)"},
+                    {"name": "minute(event_time)", "expression": "DATE_TRUNC(\"MINUTE\", `event_time`)"}
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(Error rate)",
+                  "displayName": "Error rate",
+                  "format": {"type": "number-percent", "decimalPlaces": {"type": "max", "places": 1}}
+                },
+                "period": {"fieldName": "minute(event_time)"}
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Error rate",
+                "showDescription": true,
+                "description": "ERROR share of landed rows"
+              }
+            }
+          },
+          "position": {"x": 9, "y": 2, "width": 3, "height": 3}
+        },
+        {
+          "widget": {
+            "name": "chart-ingest-rate",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_logs",
+                  "fields": [
+                    {"name": "minute(event_time)", "expression": "DATE_TRUNC(\"MINUTE\", `event_time`)"},
+                    {"name": "measure(Log rows)", "expression": "MEASURE(`Log rows`)"}
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "minute(event_time)",
+                  "displayName": "Minute",
+                  "scale": {"type": "temporal"}
+                },
+                "y": {
+                  "fieldName": "measure(Log rows)",
+                  "displayName": "Rows per minute",
+                  "scale": {"type": "quantitative"}
+                }
+              },
+              "annotations": [
+                {
+                  "type": "vertical-line",
+                  "encodings": {
+                    "x": {"dataValue": "2026-10-20T04:25:00.000", "dataType": "DATETIME"},
+                    "label": {"value": "Load test burst"},
+                    "color": {"value": {"themeColorType": "visualizationColors", "position": 3}}
+                  }
+                }
+              ],
+              "frame": {
+                "showTitle": true,
+                "title": "Rows landed per minute",
+                "showDescription": true,
+                "description": "Production imaging-archive averaged ~48,000 lines/s (~2.9M rows/min) before edge filtering. This POC burst is the short local Fluent Bit run."
+              }
+            }
+          },
+          "position": {"x": 0, "y": 5, "width": 8, "height": 6}
+        },
+        {
+          "widget": {
+            "name": "pie-severity",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_logs",
+                  "fields": [
+                    {"name": "measure(Log rows)", "expression": "MEASURE(`Log rows`)"},
+                    {"name": "severity_text", "expression": "`severity_text`"}
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "pie",
+              "encodings": {
+                "angle": {
+                  "fieldName": "measure(Log rows)",
+                  "displayName": "Rows",
+                  "scale": {"type": "quantitative"}
+                },
+                "color": {
+                  "fieldName": "severity_text",
+                  "displayName": "Severity",
+                  "scale": {
+                    "type": "categorical",
+                    "mappings": [
+                      {"value": "ERROR", "color": "#FF7054"},
+                      {"value": "WARN", "color": "#FFA600"},
+                      {"value": "INFO", "color": "#3C6997"},
+                      {"value": "DEBUG", "color": "#99DDB4"},
+                      {"value": "(blank)", "color": "#4E5185"}
+                    ]
+                  }
+                },
+                "label": {"show": true}
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Severity mix",
+                "showDescription": true,
+                "description": "imaging-archive production was ~70% DEBUG. Target architecture drops DEBUG and Istio scrapes in Fluent Bit before Zerobus."
+              }
+            }
+          },
+          "position": {"x": 8, "y": 5, "width": 4, "height": 6}
+        },
+        {
+          "widget": {
+            "name": "bar-signatures",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_errors",
+                  "fields": [
+                    {"name": "error_signature", "expression": "`error_signature`"},
+                    {"name": "measure(Error rows)", "expression": "MEASURE(`Error rows`)"}
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "error_signature",
+                  "displayName": "Signature",
+                  "scale": {"type": "categorical", "sort": {"by": "value"}}
+                },
+                "y": {
+                  "fieldName": "measure(Error rows)",
+                  "displayName": "Rows",
+                  "scale": {"type": "quantitative"}
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "ERROR/WARN signatures",
+                "showDescription": true,
+                "description": "Typed signatures instead of regexp_extract on a free-text column — the current prod_app_logs pain."
+              }
+            }
+          },
+          "position": {"x": 0, "y": 11, "width": 12, "height": 6}
+        },
+        {
+          "widget": {
+            "name": "table-errors",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_errors",
+                  "fields": [
+                    {"name": "error_signature", "expression": "`error_signature`"},
+                    {"name": "severity_text", "expression": "`severity_text`"},
+                    {"name": "service_name", "expression": "`service_name`"},
+                    {"name": "measure(Error rows)", "expression": "MEASURE(`Error rows`)"}
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {"fieldName": "error_signature", "displayName": "Signature"},
+                  {"fieldName": "severity_text", "displayName": "Severity"},
+                  {"fieldName": "service_name", "displayName": "Service"},
+                  {
+                    "fieldName": "measure(Error rows)",
+                    "displayName": "Rows",
+                    "format": {"type": "number-plain", "abbreviation": "compact", "decimalPlaces": {"type": "max", "places": 1}}
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Triage table",
+                "showDescription": true,
+                "description": "Stand-in for operational troubleshooting until transaction-id continuity is proven line-for-line against source files."
+              }
+            }
+          },
+          "position": {"x": 0, "y": 17, "width": 12, "height": 6}
+        }
+      ]
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "canvasBackgroundColor": {"light": "#FCFCFC", "dark": "#1F272D"},
+      "widgetBackgroundColor": {"light": "#FFFFFF", "dark": "#11171C"},
+      "fontColor": {"light": "#11171C", "dark": "#E8ECF0"},
+      "selectionColor": {"light": "#2272B4", "dark": "#8ACAFF"},
+      "visualizationColors": [
+        "#094074",
+        "#3C6997",
+        "#5ADBFF",
+        "#FFDD4A",
+        "#FE9000",
+        "#FF7054",
+        "#99DDB4"
+      ],
+      "widgetHeaderAlignment": "LEFT"
+    }
+  }
+}

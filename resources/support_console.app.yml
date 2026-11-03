@@ -1,0 +1,21 @@
+resources:
+  apps:
+    support_console:
+      name: helix-support-console
+      description: Helix Support Console - client log triage on Lakebase, ML anomalies, AI briefs and Genie
+      source_code_path: ../src/app
+      resources:
+        - name: postgres
+          postgres:
+            branch: ${var.lakebase_branch}
+            database: ${var.lakebase_database}
+            permission: CAN_CONNECT_AND_CREATE
+        - name: sql-warehouse
+          sql_warehouse:
+            id: ${var.warehouse_id}
+            permission: CAN_USE
+        - name: genie-space
+          genie_space:
+            name: Helix Support Triage
+            space_id: ${var.genie_space_id}
+            permission: CAN_RUN

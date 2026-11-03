@@ -1,0 +1,18 @@
+resources:
+  pipelines:
+    fluentbit_otel_etl:
+      name: helix_support_otel_etl
+      catalog: ${resources.schemas.otel_schema.catalog_name}
+      target: ${resources.schemas.otel_schema.name}
+      serverless: true
+      photon: true
+      continuous: false
+      channel: current
+      configuration:
+        otel.bronze_table: ${var.bronze_table}
+        helix.catalog: ${resources.schemas.otel_schema.catalog_name}
+        helix.schema: ${resources.schemas.otel_schema.name}
+      root_path: ../src/fluentbit_otel_etl
+      libraries:
+        - glob:
+            include: ../src/fluentbit_otel_etl/transformations/**

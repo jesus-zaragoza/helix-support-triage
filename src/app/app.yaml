@@ -1,0 +1,10 @@
+command: ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+env:
+  - name: LAKEBASE_ENDPOINT
+    value: projects/helix-support/branches/production/endpoints/primary
+  - name: SYNC_SCHEMA
+    value: dev_jesus_zaragoza_helix_support
+  - name: APP_SCHEMA
+    value: support_app
+  - name: GENIE_SPACE_ID
+    valueFrom: genie-space

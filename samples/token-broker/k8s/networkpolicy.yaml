@@ -1,0 +1,41 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: zerobus-token-broker
+  namespace: logging
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: zerobus-token-broker
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: logging
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: fluent-bit
+      ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    # Databricks OIDC. Tighten to the workspace CIDR / PrivateLink endpoint in production.
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: 443
+    - to:
+        - namespaceSelector: {}
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53

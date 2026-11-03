@@ -1,0 +1,61 @@
+resources:
+  jobs:
+    support_triage:
+      name: helix_support_triage
+      description: >
+        End-to-end Helix support triage refresh: UC governance functions, Lakeflow pipeline
+        (bronze -> silver -> gold), tags/grants, anomaly model training + scoring, AI incident
+        briefs, and Lakebase synced-table refresh for the Support Console app.
+      max_concurrent_runs: 1
+      parameters:
+        - name: catalog
+          default: ${resources.schemas.otel_schema.catalog_name}
+        - name: schema
+          default: ${resources.schemas.otel_schema.name}
+      tasks:
+        - task_key: governance_functions
+          notebook_task:
+            notebook_path: ../src/notebooks/01_governance.ipynb
+            base_parameters:
+              phase: functions
+              bronze_table: ${var.bronze_table}
+
+        - task_key: refresh_pipeline
+          depends_on:
+            - task_key: governance_functions
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.fluentbit_otel_etl.id}
+            full_refresh: false
+
+        - task_key: governance_post
+          depends_on:
+            - task_key: refresh_pipeline
+          notebook_task:
+            notebook_path: ../src/notebooks/01_governance.ipynb
+            base_parameters:
+              phase: post
+              bronze_table: ${var.bronze_table}
+              app_name: ${resources.apps.support_console.name}
+
+        - task_key: train_score_anomalies
+          depends_on:
+            - task_key: refresh_pipeline
+          notebook_task:
+            notebook_path: ../src/notebooks/02_train_anomaly_model.ipynb
+
+        - task_key: incident_briefs
+          depends_on:
+            - task_key: train_score_anomalies
+          notebook_task:
+            notebook_path: ../src/notebooks/03_incident_briefs.ipynb
+            base_parameters:
+              llm_endpoint: ${var.llm_endpoint}
+
+        - task_key: lakebase_sync
+          depends_on:
+            - task_key: incident_briefs
+            - task_key: governance_post
+          notebook_task:
+            notebook_path: ../src/notebooks/04_lakebase_sync.ipynb
+            base_parameters:
+              lakebase_branch: ${var.lakebase_branch}

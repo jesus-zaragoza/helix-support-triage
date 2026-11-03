@@ -1,0 +1,41 @@
+service:
+  flush: 1
+  log_level: info
+  http_server: off
+
+parsers:
+  - name: json
+    format: json
+
+pipeline:
+  inputs:
+    - name: tail
+      tag: otel.logs
+      path: ${LOG_PATH}
+      parser: json
+      db: ${FLB_DB_PATH}
+      read_from_head: true
+      skip_long_lines: on
+      refresh_interval: 1
+      mem_buf_limit: 50MB
+      rotate_wait: 5
+
+  outputs:
+    - name: opentelemetry
+      match: otel.logs
+      host: "${WORKSPACE_ID}.zerobus.${REGION}.cloud.databricks.com"
+      port: 443
+
+      grpc: on
+      tls: on
+      tls.verify: on
+      tls.verify_hostname: on
+
+      oauth2.enable: false
+      header:
+        - "authorization Bearer ${DATABRICKS_OTLP_TOKEN}"
+        - "x-databricks-zerobus-table-name ${DATABRICKS_LOGS_TABLE}"
+
+      logs_body_key: $message
+      logs_body_key_attributes: true
+      log_response_payload: true

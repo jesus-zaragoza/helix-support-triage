@@ -1,0 +1,13 @@
+{
+  "callers": [
+    {
+      "client_id": "fluentbit-imaging",
+      "broker_secret_env": "BROKER_CLIENT_SECRET_FLUENTBIT_IMAGING",
+      "sp_client_id_env": "DATABRICKS_CLIENT_ID",
+      "sp_client_secret_env": "DATABRICKS_CLIENT_SECRET",
+      "databricks_host": "https://fevm-serverless-stable-2xts9s.cloud.databricks.com",
+      "workspace_id": "7474654402210824",
+      "table": "accessdemo.fluentbit.helix_otel_logs"
+    }
+  ]
+}

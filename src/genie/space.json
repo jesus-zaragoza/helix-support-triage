@@ -1,0 +1,65 @@
+{
+  "title": "Helix Support Triage",
+  "description": "Ask about Helix Clinical Cloud client health: errors, latency, model-flagged anomalies and AI incident briefs by client, site and application. Synthetic data.",
+  "tables": [
+    {
+      "name": "gold_client_health",
+      "column_configs": [
+        {"column_name": "client_name", "synonyms": ["client", "customer", "sponsor", "CRO"], "enable_entity_matching": true, "enable_format_assistance": true},
+        {"column_name": "error_rate", "description": ["Errors divided by events in the 5-minute window (0-1)."]},
+        {"column_name": "p95_latency_ms", "synonyms": ["latency", "response time", "p95"]},
+        {"column_name": "service_name", "synonyms": ["app", "application", "service"], "enable_entity_matching": true, "enable_format_assistance": true},
+        {"column_name": "site_id", "synonyms": ["site", "clinical site"], "enable_entity_matching": true, "enable_format_assistance": true}
+      ]
+    },
+    {"name": "gold_incident_summary"},
+    {"name": "gold_error_signatures"},
+    {"name": "gold_client_anomalies"},
+    {
+      "name": "gold_incident_briefs",
+      "column_configs": [
+        {"column_name": "severity", "enable_entity_matching": true, "enable_format_assistance": true}
+      ]
+    },
+    {"name": "silver_otel_logs"}
+  ],
+  "text_instructions": [
+    "You answer questions from the Helix Clinical Cloud support team about client-facing application health. Helix runs imaging-archive, dicom-router, trial-upload-api, econsent-web, auth-api and ingress-gateway for pharma and CRO clients; each client has clinical sites.",
+    "The data is a simulated 24-hour timeline. Interpret 'now', 'last hour' or 'recent' relative to MAX(window_start) in gold_client_health, never current_timestamp(). 'Today' or 'the last day' means the whole 24-hour timeline (MAX(window_start) - INTERVAL 24 HOURS onwards), not the calendar date of the latest row.",
+    "For health questions by client, site or app over time use gold_client_health (5-minute windows). Compute error rate as SUM(error_count)/SUM(event_count), never AVG(error_rate). Present rates as percentages with one decimal.",
+    "For 'incidents', 'what happened', 'root cause' or 'what should I tell the client' use gold_incident_briefs (AI-generated summary, likely_cause, severity, recommended_next_step, client_reply). For windows the ML model flagged use gold_client_anomalies. Incident briefs are retrospective and have no open/closed status: treat 'open', 'current' or 'active' incidents as all incidents in the table unless the user gives a time range.",
+    "For error message types use gold_error_signatures. Use silver_otel_logs only for row-level drill-down; its user_email and study_id columns are masked by Unity Catalog policy and wingtip-gx rows are hidden by a row filter, so say so if asked.",
+    "Always show client_name rather than client_id in results when available."
+  ],
+  "sample_questions": [
+    "Which clients had SEV1 or SEV2 incidents today and what was the likely cause?",
+    "Which client sites had the highest trial-upload-api error rate today?",
+    "Show hourly error rate for Fabrikam CRO site-204",
+    "What should I tell Contoso Therapeutics about the eConsent issue?",
+    "Top 5 error signatures by count for trial-upload-api"
+  ],
+  "example_question_sqls": [
+    {
+      "question": "Which clients have the worst error rate in the last hour?",
+      "sql": "WITH mx AS (SELECT MAX(window_start) AS t FROM ${FQ}.gold_client_health) SELECT h.client_name, SUM(h.error_count) AS errors, SUM(h.event_count) AS events, ROUND(100 * SUM(h.error_count) / SUM(h.event_count), 1) AS error_rate_pct FROM ${FQ}.gold_client_health h, mx WHERE h.window_start > mx.t - INTERVAL 1 HOUR GROUP BY h.client_name ORDER BY error_rate_pct DESC"
+    },
+    {
+      "question": "List incidents with severity and likely cause",
+      "sql": "SELECT client_name, incident_id, severity, started_at, ended_at, sites, services, ROUND(100 * peak_error_rate, 1) AS peak_error_rate_pct, likely_cause FROM ${FQ}.gold_incident_briefs ORDER BY severity, started_at"
+    },
+    {
+      "question": "Hourly error rate for a client site",
+      "sql": "SELECT date_trunc('HOUR', window_start) AS hour, service_name, ROUND(100 * SUM(error_count) / SUM(event_count), 1) AS error_rate_pct, MAX(p95_latency_ms) AS max_p95_latency_ms FROM ${FQ}.gold_client_health WHERE client_name = 'Fabrikam CRO' AND site_id = 'site-204' GROUP BY ALL ORDER BY hour, service_name"
+    }
+  ],
+  "benchmarks": [
+    {
+      "question": "How many incidents were detected for each client?",
+      "sql": "SELECT client_name, COUNT(*) AS incidents FROM ${FQ}.gold_incident_briefs GROUP BY client_name ORDER BY incidents DESC"
+    },
+    {
+      "question": "Which site and service had the highest peak error rate?",
+      "sql": "SELECT client_name, site_id, service_name, MAX(error_rate) AS peak_error_rate FROM ${FQ}.gold_client_health GROUP BY ALL ORDER BY peak_error_rate DESC LIMIT 1"
+    }
+  ]
+}
